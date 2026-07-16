@@ -14,7 +14,7 @@
 <meta name="apple-mobile-web-app-title" content="نتائج البكالوريا 2026">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Markazi+Text:wght@500;700&family=Cairo:wght@400;500;600;700;800&family=Tajawal:wght@300;400;500;700&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js" onerror="var s=document.createElement('script'); s.src='https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js'; document.head.appendChild(s);"></script>
 <style>
   :root{
     --paper:#F6F3EC;
@@ -303,8 +303,13 @@ let DATA = null;
 function showLoadError(message){
   const box = document.getElementById('loadError');
   box.style.display = 'block';
-  box.innerHTML = '<strong>⚠ تعذّر عرض الأرقام والتحليل</strong><br>' + message +
-    '<br><br>تأكد من رفع ملف <code>data.json</code> بجانب <code>index.html</code> على نفس المستوى في GitHub، ثم أعد نشر الموقع على Netlify.';
+
+  const isChartIssue = /Chart is not defined/i.test(message || '');
+  const hint = isChartIssue
+    ? 'لم يتم تحميل مكتبة الرسم البياني (Chart.js) بسبب اتصال إنترنت بطيء أو حجب مؤقت للرابط الخارجي. جرّب <button onclick="location.reload()" style="background:#fff;color:#8B2A2A;border:none;padding:3px 10px;border-radius:4px;font-weight:700;cursor:pointer;">إعادة تحميل الصفحة</button> أو التحقق من الاتصال بالشبكة.'
+    : 'تأكد من رفع ملف <code>data.json</code> بجانب <code>index.html</code> على نفس المستوى في GitHub، ثم أعد نشر الموقع على Netlify.';
+
+  box.innerHTML = '<strong>⚠ تعذّر عرض الأرقام والتحليل</strong><br>' + message + '<br><br>' + hint;
 }
 
 fetch('data.json')
@@ -314,12 +319,22 @@ fetch('data.json')
   })
   .then(json => {
     DATA = json;
-    initApp();
+    waitForChartThenInit();
   })
   .catch(err => {
     console.error(err);
     showLoadError(err.message || 'خطأ غير معروف أثناء تحميل أو تحليل ملف البيانات.');
   });
+
+function waitForChartThenInit(triesLeft){
+  if (typeof triesLeft === 'undefined') triesLeft = 40; // ~4 seconds max wait
+  if (typeof Chart !== 'undefined') { initApp(); return; }
+  if (triesLeft <= 0) {
+    showLoadError('تعذّر تحميل مكتبة الرسم البياني Chart.js من الإنترنت (Chart is not defined).');
+    return;
+  }
+  setTimeout(function(){ waitForChartThenInit(triesLeft - 1); }, 100);
+}
 
 function initApp(){
 try{
